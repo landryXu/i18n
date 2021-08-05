@@ -1,6 +1,8 @@
 ## 使用
 
+```
 go get -u github.com/landryXu/i18n
+```
 
 ### 初始化语言翻译
 
