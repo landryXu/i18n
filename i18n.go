@@ -1,84 +1,46 @@
 package i18n
 
 import (
-	"encoding/csv"
+	"encoding/json"
 	"fmt"
-	"os"
+	"io/ioutil"
 )
 
 type I18n struct {
-	Path   string
-	Lang   string
-	Source [][]string
-	Data   map[string]string
+	Data  map[string][]string
+	Index int //国际化语言下标
 }
 
-func NewI18n(path string, lang string) (*I18n, error) {
-	fileName := fmt.Sprintf("%s/%s.csv", path, lang)
-	fs1, err := os.Open(fileName)
-
-	if err != nil {
-		return nil, err
-	}
-
-	r1 := csv.NewReader(fs1)
-	r1.Comma = ','
-	r1.FieldsPerRecord = -1
-	content, err := r1.ReadAll()
+//index指定json文件的国际化语言下标
+func NewI18n(path, fileName string, index ...int) (*I18n, error) {
+	fileName = fmt.Sprintf("%s/%s.json", path, fileName)
+	bytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		return nil, err
 	}
 
 	i18n := I18n{}
-	i18n.Path = path
-	i18n.Lang = lang
-	i18n.Source = content
-	i18n.Data = make(map[string]string)
+	if len(index) == 0 { //默认只有一种外语
+		i18n.Index = 0
+	} else {
+		i18n.Index = index[0]
+	}
+	if err = json.Unmarshal(bytes, &i18n.Data); err != nil {
+		return nil, err
+	}
 	return &i18n, nil
 }
 
 func (i *I18n) T(key string, args ...interface{}) string {
-	format := key
-
 	if _, ok := i.Data[key]; ok {
-		format = i.Data[key]
-	} else {
-		for _, row := range i.Source {
-			if row[0] == key {
-				i.Data[key] = row[1]
-				format = row[1]
-				break
-			}
-		}
+		key = i.Data[key][i.Index]
 	}
-	format = i.preArgs(format, args...)
-	return format
+	return i.preArgs(key, args...)
 }
 
 //use original text
 func (i *I18n) TL(key string, args ...interface{}) string {
 	return i.preArgs(key, args...)
-}
-
-//Choose language translation
-func (i *I18n) TOption(key string, lang string, args ...interface{}) string {
-	i18nClient, err := NewI18n(i.Path, lang)
-	format := key
-
-	if err != nil {
-		return i.preArgs(format, args...)
-	}
-
-	for _, row := range i18nClient.Source {
-		if row[0] == key {
-			i18nClient.Data[key] = row[1]
-			format = row[1]
-			break
-		}
-	}
-
-	format = i.preArgs(format, args...)
-	return format
 }
 
 func (i *I18n) preArgs(format string, args ...interface{}) string {
